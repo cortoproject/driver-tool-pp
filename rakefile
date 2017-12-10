@@ -1,8 +1,0 @@
-PACKAGE = 'driver/tool/pp'
-USE_PACKAGE = [
-    "corto/argparse",
-    "corto/g"
-]
-NOCORTO = true
-LANGUAGE = 'c'
-require "#{ENV['CORTO_BUILD']}/package"
