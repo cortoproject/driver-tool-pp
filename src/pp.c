@@ -381,7 +381,7 @@ int cortomain(int argc, char *argv[]) {
             }
 
             if (strcmp(import, "corto") && strcmp(import, "/corto")) {
-                if (corto_load(import, 0, NULL)) {
+                if (corto_use(import, 0, NULL)) {
                     corto_throw("importing '%s' failed", import);
                     goto error;
                 }
@@ -398,7 +398,7 @@ int cortomain(int argc, char *argv[]) {
             include = corto_iter_next(&it);
 
             corto_trace("loading '%s'", include);
-            if (corto_load(include, 0, NULL)) {
+            if (corto_use(include, 0, NULL)) {
                 corto_throw("failed to load '%s'", include);
                 goto error;
             } else {
