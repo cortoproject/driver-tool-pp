@@ -230,7 +230,7 @@ corto_int16 cortotool_ppParse(
 
         /* Parse object as scope, with provided prefix */
         g_parse(g, o, parseSelf, parseScope, prefix);
-        
+
         corto_release(o);
     }
 
@@ -256,7 +256,7 @@ void cortotool_splitId(corto_string path, char **parent, char **id) {
     }
 }
 
-static 
+static
 bool cortotool_ppIsLanguagePackage(char *language, char *import) {
     if (language) {
         char *lastElem = strrchr(import, '/');
@@ -279,12 +279,12 @@ corto_int16 cortotool_ppParseImports(g_generator g, corto_ll imports, char *lang
     while (corto_iter_hasNext(&it)) {
         corto_string import = corto_iter_next(&it);
 
-        if (strcmp(import, "corto") && 
-            strcmp(import, "/corto")) 
+        if (strcmp(import, "corto") &&
+            strcmp(import, "/corto"))
         {
             corto_object package = corto_lookup(NULL, import);
             if (!package) {
-                corto_throw("package '%s' not found", import);
+                corto_throw("failed to load package '%s'", import);
                 goto error;
             }
 
@@ -432,7 +432,7 @@ int cortomain(int argc, char *argv[]) {
 
         /* Generator object that holds config & invokes generator libs */
         g = g_new(name, NULL);
-            
+
         /* Generate for all scopes */
         if (scopes) {
             if (cortotool_ppParse(g, scopes, TRUE, TRUE)) {
@@ -497,7 +497,7 @@ int cortomain(int argc, char *argv[]) {
 
             corto_log_pop();
         }
-        
+
         /* Free generator */
         g_free(g);
         g = NULL;
@@ -514,4 +514,3 @@ int cortomain(int argc, char *argv[]) {
 error:
     return -1;
 }
-
