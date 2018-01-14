@@ -390,6 +390,13 @@ int cortomain(int argc, char *argv[]) {
     }
     corto_log_pop();
 
+    /* Create marker object that will tell generation framework which objects
+     * were created by code generator  */
+    corto_object marker = corto_create(root_o, "pp_marker", corto_void_o);
+
+    /* Set marker object as source */
+    corto_object prev = corto_set_source(marker);
+
     /* Load includes */
     if (includes) {
         corto_log_push("model");
@@ -425,6 +432,8 @@ int cortomain(int argc, char *argv[]) {
         }
         corto_log_pop();
     }
+
+    corto_set_source(prev);
 
     /* Load library */
     if (generators) {
@@ -512,5 +521,6 @@ int cortomain(int argc, char *argv[]) {
 
     return 0;
 error:
+    corto_set_source(NULL);
     return -1;
 }
