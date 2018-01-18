@@ -1,9 +1,3 @@
-
-#include "driver/tool/pp/pp.h"
-
-#include <corto/g/g.h>
-#include <corto/argparse/argparse.h>
-
 /* Copyright (c) 2010-2018 the corto developers
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -24,6 +18,10 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
+
+#include <driver/tool/pp/pp.h>
+#include <corto/g/g.h>
+#include <corto/argparse/argparse.h>
 
 static corto_ll silent, mute, attributes, names, prefixes, generators, scopes;
 static corto_ll objects, languages, includes, imports;
@@ -195,6 +193,7 @@ error:
 corto_int16 cortotool_ppParse(
     g_generator g,
     corto_ll list,
+    const char *projectName,
     corto_bool parseSelf,
     corto_bool parseScope)
 {
@@ -229,7 +228,22 @@ corto_int16 cortotool_ppParse(
         }
 
         /* Parse object as scope, with provided prefix */
-        g_parse(g, o, parseSelf, parseScope, prefix);
+        char *idPtr = id;
+        if (idPtr[0] == '/') {
+            idPtr ++;
+        }
+        if (prefix && prefix[0] == '/') {
+            prefix ++;
+        }
+
+        if (!prefix || strcmp(idPtr, projectName)) {
+            /* Do not apply prefix when target scope is different from the current
+             * package. This could otherwise result in applying the wrong prefix
+             * to objects that are not defined by this project. */
+            g_parse(g, o, parseSelf, parseScope, NULL);
+        } else {
+            g_parse(g, o, parseSelf, parseScope, prefix);
+        }
 
         corto_release(o);
     }
@@ -444,13 +458,13 @@ int cortomain(int argc, char *argv[]) {
 
         /* Generate for all scopes */
         if (scopes) {
-            if (cortotool_ppParse(g, scopes, TRUE, TRUE)) {
+            if (cortotool_ppParse(g, scopes, name, TRUE, TRUE)) {
                 corto_log_pop();
                 goto error;
             }
         }
         if (objects) {
-            if (cortotool_ppParse(g, objects, TRUE, FALSE)) {
+            if (cortotool_ppParse(g, objects, name, TRUE, FALSE)) {
                 corto_log_pop();
                 goto error;
             }
