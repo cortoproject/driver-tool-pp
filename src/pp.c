@@ -394,10 +394,23 @@ int cortomain(int argc, char *argv[]) {
                 continue;
             }
 
+            /* Don't load corto */
             if (strcmp(import, "corto") && strcmp(import, "/corto")) {
-                if (corto_use(import, 0, NULL)) {
+                /* Check if package exists */
+                const char *libpath = corto_locate(
+                    import, NULL, CORTO_LOCATE_PACKAGE);
+                if (!libpath) {
                     corto_throw("importing '%s' failed", import);
                     goto error;
+                }
+
+                /* Check if package has a loadable library */
+                const char *lib = corto_locate(import, NULL, CORTO_LOCATE_LIB);
+                if (lib) {
+                    if (corto_use(import, 0, NULL)) {
+                        corto_throw("importing '%s' failed", import);
+                        goto error;
+                    }
                 }
             }
         }
