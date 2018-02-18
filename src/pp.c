@@ -23,9 +23,8 @@
 #include <corto/g/g.h>
 #include <corto/argparse/argparse.h>
 
-static corto_ll silent, mute, attributes, names, prefixes, generators, scopes;
+static corto_ll silent, mute, attributes, names, generators, scopes;
 static corto_ll objects, languages, includes, imports;
-static corto_string prefix = NULL;
 static corto_string name = NULL;
 
 corto_int16 cortotool_language(char *language) {
@@ -43,6 +42,7 @@ corto_int16 cortotool_language(char *language) {
         corto_ll_append(generators, "c/interface");
         corto_ll_append(generators, "c/load");
         corto_ll_append(generators, "c/api");
+        corto_ll_append(generators, "c/binding");
         corto_ll_append(attributes, "c=src");
         corto_ll_append(attributes, "h=include");
     } else if (!strcmp(language, "c4cpp")) {
@@ -51,15 +51,12 @@ corto_int16 cortotool_language(char *language) {
         corto_ll_append(generators, "c/interface");
         corto_ll_append(generators, "c/load");
         corto_ll_append(generators, "c/api");
+        corto_ll_append(generators, "c/binding");
         corto_ll_append(attributes, "c=src");
         corto_ll_append(attributes, "cpp=src");
         corto_ll_append(attributes, "h=include");
         corto_ll_append(attributes, "c4cpp=true");
     } else if (!strcmp(language, "cpp") || (!strcmp(language, "c++"))) {
-        if (!prefixes) {
-            prefixes = corto_ll_new();
-        }
-        corto_ll_append(prefixes, "");
         corto_ll_append(generators, "c/type");
         corto_ll_append(generators, "c/load");
         corto_ll_append(generators, "c/project");
@@ -89,7 +86,6 @@ corto_int16 cortotool_core(void) {
     pid = corto_proc_run("corto", (char*[]){
       "corto",
       "pp",
-      "--prefix", "corto",
       "--name", "corto",
       "--scope", "corto/vstore",
       "--attr", "c=src/vstore",
@@ -102,14 +98,13 @@ corto_int16 cortotool_core(void) {
     });
     if (corto_proc_wait(pid, &ret) || ret) {
         corto_error("failed to generate code for corto/vstore (%d)", ret);
-        printf("   command: corto pp --prefix corto --name corto --scope corto/vstore --attr c=src/core --attr h=include/core --attr bootstrap=true --attr stubs=false -g c/interface -g c/api -g c/type\n");
+        printf("   command: corto pp --name corto --scope corto/vstore --attr c=src/core --attr h=include/core --attr bootstrap=true --attr stubs=false -g c/interface -g c/api -g c/type\n");
         goto error;
     }
 
     pid = corto_proc_run("corto", (char*[]){
       "corto",
       "pp",
-      "--prefix", "corto",
       "--name", "corto",
       "--scope", "corto/lang",
       "--attr", "c=src/lang",
@@ -122,14 +117,13 @@ corto_int16 cortotool_core(void) {
     });
     if (corto_proc_wait(pid, &ret) || ret) {
         corto_error("failed to generate code for corto/lang (%d)", ret);
-        printf("   command: corto pp --prefix corto --name corto --scope corto/lang --attr c=src/lang --attr h=include/lang --attr bootstrap=true --attr stubs=false -g c/interface -g c/api -g c/type\n");
+        printf("   command: corto pp --name corto --scope corto/lang --attr c=src/lang --attr h=include/lang --attr bootstrap=true --attr stubs=false -g c/interface -g c/api -g c/type\n");
         goto error;
     }
 
     pid = corto_proc_run("corto", (char*[]){
       "corto",
       "pp",
-      "--prefix", "corto_native",
       "--name", "corto",
       "--scope", "corto/native",
       "--attr", "c=src/native",
@@ -142,14 +136,13 @@ corto_int16 cortotool_core(void) {
     });
     if (corto_proc_wait(pid, &ret) || ret) {
         corto_error("failed to generate code for corto/native (%d)", ret);
-        printf("   command: corto pp --prefix corto_native --name corto --scope corto/native --attr c=src/native --attr h=include/native --attr bootstrap=true --attr stubs=false -g c/interface -g c/api -g c/type\n");
+        printf("   command: corto pp --name corto --scope corto/native --attr c=src/native --attr h=include/native --attr bootstrap=true --attr stubs=false -g c/interface -g c/api -g c/type\n");
         goto error;
     }
 
     pid = corto_proc_run("corto", (char*[]){
       "corto",
       "pp",
-      "--prefix", "corto_secure",
       "--name", "corto",
       "--scope", "corto/secure",
       "--attr", "c=src/secure",
@@ -162,7 +155,7 @@ corto_int16 cortotool_core(void) {
     });
     if (corto_proc_wait(pid, &ret) || ret) {
         corto_error("failed to generate code for corto/native (%d)", ret);
-        printf("   command: corto pp --prefix corto_secure --name corto --scope corto/secure --attr c=src/secure --attr h=include/secure --attr bootstrap=true --attr stubs=false -g c/interface -g c/api -g c/type\n");
+        printf("   command: corto pp --name corto --scope corto/secure --attr c=src/secure --attr h=include/secure --attr bootstrap=true --attr stubs=false -g c/interface -g c/api -g c/type\n");
         goto error;
     }
 
@@ -181,7 +174,7 @@ corto_int16 cortotool_core(void) {
     });
     if (corto_proc_wait(pid, &ret) || ret) {
         corto_error("failed to generate code for corto/c (%d)", ret);
-        printf("   command: corto pp --prefix corto --name corto --scope corto/vstore --attr c=src/core --attr h=include/core --attr bootstrap=true --attr stubs=false -g c/interface -g c/api -g c/type\n");
+        printf("   command: corto pp --name corto --scope corto/vstore --attr c=src/core --attr h=include/core --attr bootstrap=true --attr stubs=false -g c/interface -g c/api -g c/type\n");
         goto error;
     }
 
@@ -227,23 +220,7 @@ corto_int16 cortotool_ppParse(
             goto error;
         }
 
-        /* Parse object as scope, with provided prefix */
-        char *idPtr = id;
-        if (idPtr[0] == '/') {
-            idPtr ++;
-        }
-        if (prefix && prefix[0] == '/') {
-            prefix ++;
-        }
-
-        if (!prefix || strcmp(idPtr, projectName)) {
-            /* Do not apply prefix when target scope is different from the current
-             * package. This could otherwise result in applying the wrong prefix
-             * to objects that are not defined by this project. */
-            g_parse(g, o, parseSelf, parseScope, NULL);
-        } else {
-            g_parse(g, o, parseSelf, parseScope, prefix);
-        }
+        g_parse(g, o, parseSelf, parseScope);
 
         corto_release(o);
     }
@@ -343,12 +320,10 @@ int cortomain(int argc, char *argv[]) {
         {"--core", &core, NULL},
         {"--attr", NULL, &attributes},
         {"--name", NULL, &names},
-        {"--prefix", NULL, &prefixes},
         {"--scope", NULL, &scopes},
         {"--object", NULL, &objects},
         {"--import", NULL, &imports},
         {"--use", NULL, &imports},
-        {"-p", NULL, &prefixes},
         {"-s", NULL, &scopes},
         {"$+--generator", NULL, &generators},
         {"$|-g", NULL, &generators},
@@ -362,10 +337,6 @@ int cortomain(int argc, char *argv[]) {
     if (!data) {
         corto_throw(NULL);
         goto error;
-    }
-
-    if (prefixes) {
-        prefix = corto_ll_get(prefixes, 0);
     }
 
     if (names) {
@@ -440,10 +411,6 @@ int cortomain(int argc, char *argv[]) {
                 if (!scopes && (corto_ll_count(includes) == 1) && !strchr(include, '.')) {
                     scopes = corto_ll_new();
                     corto_ll_insert(scopes, include);
-                }
-                /* Add prefix to scope if none provided */
-                if (!prefix && (corto_ll_count(includes) == 1) && !strchr(include, '.')) {
-                    prefix = include;
                 }
             }
         }
