@@ -81,8 +81,6 @@ corto_int16 cortotool_core(void) {
     corto_proc pid;
     corto_int8 ret = 0;
 
-    /* Generate the core. This is a two-step process where files are generated
-     * for both the core and lang package */
     pid = corto_proc_run("corto", (char*[]){
       "corto",
       "pp",
@@ -94,6 +92,7 @@ corto_int16 cortotool_core(void) {
       "--attr", "stubs=false",
       "-g", "c/interface",
       "-g", "c/type",
+      "-g", "c/binding",
       NULL
     });
     if (corto_proc_wait(pid, &ret) || ret) {
@@ -113,6 +112,7 @@ corto_int16 cortotool_core(void) {
       "--attr", "stubs=false",
       "-g", "c/interface",
       "-g", "c/type",
+      "-g", "c/binding",
       NULL
     });
     if (corto_proc_wait(pid, &ret) || ret) {
@@ -132,6 +132,7 @@ corto_int16 cortotool_core(void) {
       "--attr", "stubs=false",
       "-g", "c/interface",
       "-g", "c/type",
+      "-g", "c/binding",
       NULL
     });
     if (corto_proc_wait(pid, &ret) || ret) {
@@ -151,6 +152,7 @@ corto_int16 cortotool_core(void) {
       "--attr", "stubs=false",
       "-g", "c/interface",
       "-g", "c/type",
+      "-g", "c/binding",
       NULL
     });
     if (corto_proc_wait(pid, &ret) || ret) {
