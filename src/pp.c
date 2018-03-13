@@ -27,7 +27,7 @@ static corto_ll silent, mute, attributes, names, generators, scopes;
 static corto_ll objects, languages, includes, imports;
 static corto_string name = NULL;
 
-corto_int16 cortotool_language(char *language) {
+int16_t cortotool_language(char *language) {
     if (!generators) {
         generators = corto_ll_new();
     }
@@ -43,6 +43,7 @@ corto_int16 cortotool_language(char *language) {
         corto_ll_append(generators, "c/load");
         corto_ll_append(generators, "c/api");
         corto_ll_append(generators, "c/binding");
+        corto_ll_append(generators, "c/cpp");
         corto_ll_append(attributes, "c=src");
         corto_ll_append(attributes, "h=include");
     } else if (!strcmp(language, "c4cpp")) {
@@ -52,6 +53,7 @@ corto_int16 cortotool_language(char *language) {
         corto_ll_append(generators, "c/load");
         corto_ll_append(generators, "c/api");
         corto_ll_append(generators, "c/binding");
+        corto_ll_append(generators, "c/cpp");
         corto_ll_append(attributes, "c=src");
         corto_ll_append(attributes, "cpp=src");
         corto_ll_append(attributes, "h=include");
