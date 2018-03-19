@@ -252,16 +252,14 @@ void cortotool_splitId(corto_string path, char **parent, char **id) {
 }
 
 static
-bool cortotool_ppIsLanguagePackage(char *language, char *import) {
-    if (language) {
-        char *lastElem = strrchr(import, '/');
-        if (lastElem) {
-            lastElem ++;
+bool cortotool_ppIsLanguagePackage(char *import) {
+    char *lastElem = strrchr(import, '/');
+    if (lastElem) {
+        lastElem ++;
 
-            /* No need to import generated api packages */
-            if (!strcmp(lastElem, language)) {
-                return true;
-            }
+        /* No need to import generated api packages */
+        if (!strcmp(lastElem, "c") || !strcmp(lastElem, "cpp")) {
+            return true;
         }
     }
     return false;
@@ -365,7 +363,7 @@ int cortomain(int argc, char *argv[]) {
         corto_iter it = corto_ll_iter(imports);
         while (corto_iter_hasNext(&it)) {
             corto_string import = corto_iter_next(&it);
-            if (cortotool_ppIsLanguagePackage(language, import)) {
+            if (cortotool_ppIsLanguagePackage(import)) {
                 continue;
             }
 
