@@ -24,10 +24,13 @@
 #include <corto/argparse/argparse.h>
 
 static corto_ll silent, mute, attributes, names, generators, scopes;
-static corto_ll objects, languages, includes, imports;
+static corto_ll objects, languages, includes, imports, private_imports;
 static corto_string name = NULL;
 
-int16_t cortotool_language(char *language) {
+static
+int16_t cortotool_language(
+    char *language)
+{
     if (!generators) {
         generators = corto_ll_new();
     }
@@ -79,7 +82,8 @@ error:
     return -1;
 }
 
-corto_int16 cortotool_core(void) {
+static
+int16_t cortotool_core(void) {
     corto_proc pid;
     corto_int8 ret = 0;
 
@@ -187,7 +191,8 @@ error:
     return -1;
 }
 
-corto_int16 cortotool_ppParse(
+static
+int16_t cortotool_ppParse(
     g_generator g,
     corto_ll list,
     const char *projectName,
@@ -234,25 +239,10 @@ error:
     return -1;
 }
 
-void cortotool_splitId(corto_string path, char **parent, char **id) {
-    *id = strrchr(path, '/');
-    *parent = NULL;
-    if (*id) {
-        if (*id != path) {
-            *parent = path;
-        } else {
-            *parent = "/";
-        }
-        *id[0] = '\0';
-        (*id) ++;
-    } else {
-        *id = path;
-        *parent = "/";
-    }
-}
-
 static
-bool cortotool_ppIsLanguagePackage(char *import) {
+bool cortotool_ppIsLanguagePackage(
+    char *import)
+{
     char *lastElem = strrchr(import, '/');
     if (lastElem) {
         lastElem ++;
@@ -266,7 +256,13 @@ bool cortotool_ppIsLanguagePackage(char *import) {
 }
 
 /* Add imports to parser */
-corto_int16 cortotool_ppParseImports(g_generator g, corto_ll imports, char *language) {
+static
+int16_t cortotool_ppParseImports(
+    g_generator g,
+    corto_ll imports,
+    char *language,
+    bool private)
+{
     corto_iter it = corto_ll_iter(imports);
 
     while (corto_iter_hasNext(&it)) {
@@ -281,11 +277,54 @@ corto_int16 cortotool_ppParseImports(g_generator g, corto_ll imports, char *lang
                 goto error;
             }
 
-            if (g_import(g, package)) {
-                goto error;
+            if (private) {
+                if (g_import_private(g, package)) {
+                    goto error;
+                }
+            } else {
+                if (g_import(g, package)) {
+                    goto error;
+                }
             }
 
             corto_release(package);
+        }
+    }
+
+    return 0;
+error:
+    return -1;
+}
+
+static
+int16_t cortotool_ppLoadImports(
+    corto_ll imports)
+{
+    corto_iter it = corto_ll_iter(imports);
+    while (corto_iter_hasNext(&it)) {
+        corto_string import = corto_iter_next(&it);
+        if (cortotool_ppIsLanguagePackage(import)) {
+            continue;
+        }
+
+        /* Don't load corto */
+        if (strcmp(import, "corto") && strcmp(import, "/corto")) {
+            /* Check if package exists */
+            const char *libpath = corto_locate(
+                import, NULL, CORTO_LOCATE_PACKAGE);
+            if (!libpath) {
+                corto_throw("importing '%s' failed", import);
+                goto error;
+            }
+
+            /* Check if package has a loadable library */
+            const char *lib = corto_locate(import, NULL, CORTO_LOCATE_LIB);
+            if (lib) {
+                if (corto_use(import, 0, NULL)) {
+                    corto_throw("importing '%s' failed", import);
+                    goto error;
+                }
+            }
         }
     }
 
@@ -326,6 +365,7 @@ int cortomain(int argc, char *argv[]) {
         {"--object", NULL, &objects},
         {"--import", NULL, &imports},
         {"--use", NULL, &imports},
+        {"--use-private", NULL, &private_imports},
         {"-s", NULL, &scopes},
         {"$+--generator", NULL, &generators},
         {"$|-g", NULL, &generators},
@@ -360,32 +400,13 @@ int cortomain(int argc, char *argv[]) {
     /* Load imports */
     corto_log_push("import");
     if (imports) {
-        corto_iter it = corto_ll_iter(imports);
-        while (corto_iter_hasNext(&it)) {
-            corto_string import = corto_iter_next(&it);
-            if (cortotool_ppIsLanguagePackage(import)) {
-                continue;
-            }
-
-            /* Don't load corto */
-            if (strcmp(import, "corto") && strcmp(import, "/corto")) {
-                /* Check if package exists */
-                const char *libpath = corto_locate(
-                    import, NULL, CORTO_LOCATE_PACKAGE);
-                if (!libpath) {
-                    corto_throw("importing '%s' failed", import);
-                    goto error;
-                }
-
-                /* Check if package has a loadable library */
-                const char *lib = corto_locate(import, NULL, CORTO_LOCATE_LIB);
-                if (lib) {
-                    if (corto_use(import, 0, NULL)) {
-                        corto_throw("importing '%s' failed", import);
-                        goto error;
-                    }
-                }
-            }
+        if (cortotool_ppLoadImports(imports)) {
+            goto error;
+        }
+    }
+    if (private_imports) {
+        if (cortotool_ppLoadImports(private_imports)) {
+            goto error;
         }
     }
     corto_log_pop();
@@ -454,7 +475,15 @@ int cortomain(int argc, char *argv[]) {
 
         /* Load imports */
         if (imports) {
-            if (cortotool_ppParseImports(g, imports, language)) {
+            if (cortotool_ppParseImports(g, imports, language, false)) {
+                corto_log_pop();
+                goto error;
+            }
+        }
+
+        /* Load private imports */
+        if (private_imports) {
+            if (cortotool_ppParseImports(g, private_imports, language, true)) {
                 corto_log_pop();
                 goto error;
             }
