@@ -268,27 +268,34 @@ int16_t cortotool_ppParseImports(
     while (corto_iter_hasNext(&it)) {
         corto_string import = corto_iter_next(&it);
 
-        if (strcmp(import, "corto") &&
-            strcmp(import, "/corto"))
+        if (!strcmp(import, "corto") ||
+            !strcmp(import, "/corto"))
         {
-            corto_object package = corto_lookup(NULL, import);
-            if (!package) {
-                corto_throw("failed to load package '%s'", import);
+            continue;
+        }
+
+        if (!corto_locate(import, NULL, CORTO_LOCATE_LIB)) {
+            /* If package cannot be loaded as library, skip */
+            continue;
+        }
+
+        corto_object package = corto_lookup(NULL, import);
+        if (!package) {
+            corto_throw("failed to load package '%s'", import);
+            goto error;
+        }
+
+        if (private) {
+            if (g_import_private(g, package)) {
                 goto error;
             }
-
-            if (private) {
-                if (g_import_private(g, package)) {
-                    goto error;
-                }
-            } else {
-                if (g_import(g, package)) {
-                    goto error;
-                }
+        } else {
+            if (g_import(g, package)) {
+                goto error;
             }
-
-            corto_release(package);
         }
+
+        corto_release(package);
     }
 
     return 0;
