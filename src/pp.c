@@ -240,97 +240,70 @@ error:
 }
 
 static
-bool cortotool_ppIsLanguagePackage(
-    char *import)
-{
-    char *lastElem = strrchr(import, '/');
-    if (lastElem) {
-        lastElem ++;
-
-        /* No need to import generated api packages */
-        if (!strcmp(lastElem, "c") || !strcmp(lastElem, "cpp")) {
-            return true;
-        }
-    }
-    return false;
-}
-
-/* Add imports to parser */
-static
-int16_t cortotool_ppParseImports(
+int16_t cortotool_ppLoadImports(
     g_generator g,
     corto_ll imports,
-    char *language,
     bool private)
 {
     corto_iter it = corto_ll_iter(imports);
-
     while (corto_iter_hasNext(&it)) {
         corto_string import = corto_iter_next(&it);
 
-        if (!strcmp(import, "corto") ||
+        /* Don't load corto */
+        if (!strcmp(import, "corto") &&
             !strcmp(import, "/corto"))
         {
             continue;
         }
 
-        if (!corto_locate(import, NULL, CORTO_LOCATE_LIB)) {
-            /* If package cannot be loaded as library, skip */
-            continue;
-        }
-
-        corto_object package = corto_lookup(NULL, import);
-        if (!package) {
-            corto_throw("failed to load package '%s'", import);
+        /* Check if package exists */
+        const char *libpath = corto_locate(
+            import, NULL, CORTO_LOCATE_PACKAGE);
+        if (!libpath) {
+            corto_throw("package '%s' not found", import);
             goto error;
         }
 
-        if (private) {
-            if (g_import_private(g, package)) {
+        /* Check if package has a loadable library */
+        const char *lib = corto_locate(import, NULL, CORTO_LOCATE_LIB);
+        if (lib) {
+            /* Fetch library */
+            corto_dl dl = NULL;
+            void *proc = corto_load_sym(import, &dl, "cortomain");
+            if (!dl) {
+                corto_throw("loading package '%s' failed", import);
                 goto error;
-            }
-        } else {
-            if (g_import(g, package)) {
-                goto error;
-            }
-        }
-
-        corto_release(package);
-    }
-
-    return 0;
-error:
-    return -1;
-}
-
-static
-int16_t cortotool_ppLoadImports(
-    corto_ll imports)
-{
-    corto_iter it = corto_ll_iter(imports);
-    while (corto_iter_hasNext(&it)) {
-        corto_string import = corto_iter_next(&it);
-        if (cortotool_ppIsLanguagePackage(import)) {
-            continue;
-        }
-
-        /* Don't load corto */
-        if (strcmp(import, "corto") && strcmp(import, "/corto")) {
-            /* Check if package exists */
-            const char *libpath = corto_locate(
-                import, NULL, CORTO_LOCATE_PACKAGE);
-            if (!libpath) {
-                corto_throw("importing '%s' failed", import);
-                goto error;
+            } else if (!proc) {
+                /* Catch error thrown by corto_load_sym */
+                corto_catch();
             }
 
-            /* Check if package has a loadable library */
-            const char *lib = corto_locate(import, NULL, CORTO_LOCATE_LIB);
-            if (lib) {
+            /* If lib has cortomain, check if a package object was created */
+            if (proc) {
+                /* Import package */
                 if (corto_use(import, 0, NULL)) {
-                    corto_throw("importing '%s' failed", import);
+                    corto_throw("loading model for package '%s' failed ", import);
                     goto error;
                 }
+
+                corto_object package = corto_lookup(NULL, import);
+                if (!package) {
+                    /* Package did not create an object for itself. Create dummy
+                     * package object to pass to generator */
+                    package = corto_create(root_o, import, corto_package_o);
+                }
+
+                if (private) {
+                    if (g_import_private(g, package)) {
+                        goto error;
+                    }
+                } else {
+                    if (g_import(g, package)) {
+                        goto error;
+                    }
+                }
+
+                corto_release(package);
             }
         }
     }
@@ -351,11 +324,12 @@ int cortomain(int argc, char *argv[]) {
 
     CORTO_UNUSED(argc);
 
-    /* If a definition file contains a package that is not in the imports
+    /* If a model contains a package that is not in the imports
      * specified on the commandline, don't automatically load it, but throw an
-     * error. This guarantees that the definition file cannot use packages that
+     * error. This guarantees that the model cannot use packages that
      * are not part of the project dependencies. */
-    corto_autoload(FALSE);
+    corto_enable_load(false);
+    corto_autoload(false);
 
     corto_ok("corto preprocessor v1.0");
 
@@ -404,15 +378,17 @@ int cortomain(int argc, char *argv[]) {
 
     corto_trace("start generator from '%s'", corto_cwd());
 
+    g = g_new(name, NULL);
+
     /* Load imports */
     corto_log_push("import");
     if (imports) {
-        if (cortotool_ppLoadImports(imports)) {
+        if (cortotool_ppLoadImports(g, imports, false)) {
             goto error;
         }
     }
     if (private_imports) {
-        if (cortotool_ppLoadImports(private_imports)) {
+        if (cortotool_ppLoadImports(g, private_imports, true)) {
             goto error;
         }
     }
@@ -463,9 +439,6 @@ int cortomain(int argc, char *argv[]) {
     if (generators) {
         corto_log_push("gen");
 
-        /* Generator object that holds config & invokes generator libs */
-        g = g_new(name, NULL);
-
         /* Generate for all scopes */
         if (scopes) {
             if (cortotool_ppParse(g, scopes, name, TRUE, TRUE)) {
@@ -475,22 +448,6 @@ int cortomain(int argc, char *argv[]) {
         }
         if (objects) {
             if (cortotool_ppParse(g, objects, name, TRUE, FALSE)) {
-                corto_log_pop();
-                goto error;
-            }
-        }
-
-        /* Load imports */
-        if (imports) {
-            if (cortotool_ppParseImports(g, imports, language, false)) {
-                corto_log_pop();
-                goto error;
-            }
-        }
-
-        /* Load private imports */
-        if (private_imports) {
-            if (cortotool_ppParseImports(g, private_imports, language, true)) {
                 corto_log_pop();
                 goto error;
             }
@@ -539,12 +496,10 @@ int cortomain(int argc, char *argv[]) {
             corto_log_pop();
         }
 
-        /* Free generator */
-        g_free(g);
-        g = NULL;
-
         corto_log_pop();
     }
+
+    g_free(g);
 
     /* Cleanup application resources */
     corto_argclean(data);
