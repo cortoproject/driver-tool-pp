@@ -266,6 +266,9 @@ int16_t cortotool_ppLoadImports(
 
         /* Check if package has a loadable library */
         const char *lib = corto_locate(import, NULL, CORTO_LOCATE_LIB);
+        const char *include = corto_locate(import, NULL, CORTO_LOCATE_INCLUDE);
+        corto_package package = NULL;
+
         if (lib) {
             /* Fetch library */
             corto_dl dl = NULL;
@@ -286,24 +289,25 @@ int16_t cortotool_ppLoadImports(
                     goto error;
                 }
 
-                corto_object package = corto_lookup(NULL, import);
-                if (!package) {
-                    /* Package did not create an object for itself. Create dummy
-                     * package object to pass to generator */
-                    package = corto_create(root_o, import, corto_package_o);
-                }
+                package = corto_lookup(NULL, import);
+            }
+        }
 
-                if (private) {
-                    if (g_import_private(g, package)) {
-                        goto error;
-                    }
-                } else {
-                    if (g_import(g, package)) {
-                        goto error;
-                    }
-                }
+        if (lib || include) {
+            if (!package) {
+                /* Package did not create an object for itself. Create dummy
+                 * package object to pass to generator */
+                package = corto_create(root_o, import, corto_package_o);
+            }
 
-                corto_release(package);
+            if (private) {
+                if (g_import_private(g, package)) {
+                    goto error;
+                }
+            } else {
+                if (g_import(g, package)) {
+                    goto error;
+                }
             }
         }
     }
