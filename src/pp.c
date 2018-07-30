@@ -250,7 +250,7 @@ int16_t cortotool_ppLoadImports(
         corto_string import = corto_iter_next(&it);
 
         /* Don't load corto */
-        if (!strcmp(import, "corto") &&
+        if (!strcmp(import, "corto") ||
             !strcmp(import, "/corto"))
         {
             continue;
