@@ -21,7 +21,7 @@
 
 #include <driver/tool/pp/pp.h>
 #include <corto/g/g.h>
-#include <corto/argparse/argparse.h>
+#include <corto/util/argparse/argparse.h>
 
 static corto_ll silent, mute, attributes, names, generators, scopes;
 static corto_ll objects, languages, includes, imports, private_imports;
