@@ -5,7 +5,6 @@
         "author": "Sander Mertens",
         "description": "Preprocessor that invokes corto code generators",
         "version": "1.0.0",
-        "managed": false,
         "use": ["corto", "corto.util.argparse", "corto.g"]
     }
 }
