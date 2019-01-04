@@ -23,9 +23,10 @@
 #include <corto.g>
 #include <corto.util.argparse>
 
-static ut_ll silent, mute, attributes, names, generators, scopes;
+static ut_ll silent, mute, attributes, names, generators, scopes, path;
 static ut_ll objects, languages, includes, imports, private_imports;
 static corto_string name = NULL;
+static ut_ll c4cpp = NULL;
 
 static
 int16_t cortotool_language(
@@ -40,38 +41,45 @@ int16_t cortotool_language(
     }
 
     if (!strcmp(language, "c")) {
-        ut_ll_append(generators, "c/project");
-        ut_ll_append(generators, "c/type");
-        ut_ll_append(generators, "c/interface");
-        ut_ll_append(generators, "c/load");
-        ut_ll_append(generators, "c/api");
-        ut_ll_append(generators, "c/binding");
-        ut_ll_append(generators, "c/cpp");
-        ut_ll_append(attributes, "c=src");
-        ut_ll_append(attributes, "h=include");
-    } else if (!strcmp(language, "c4cpp")) {
-        ut_ll_append(generators, "c/project");
-        ut_ll_append(generators, "c/type");
-        ut_ll_append(generators, "c/interface");
-        ut_ll_append(generators, "c/load");
-        ut_ll_append(generators, "c/api");
-        ut_ll_append(generators, "c/binding");
-        ut_ll_append(generators, "c/cpp");
-        ut_ll_append(attributes, "c=src");
-        ut_ll_append(attributes, "cpp=src");
-        ut_ll_append(attributes, "h=include");
-        ut_ll_append(attributes, "c4cpp=true");
-    } else if (!strcmp(language, "cpp") || (!strcmp(language, "c++"))) {
-        ut_ll_append(generators, "c/type");
-        ut_ll_append(generators, "c/load");
-        ut_ll_append(generators, "c/project");
-        ut_ll_append(generators, "cpp/class");
-        ut_ll_append(attributes, "c=src");
-        ut_ll_append(attributes, "h=include");
-        ut_ll_append(attributes, "cpp=src");
-        ut_ll_append(attributes, "hpp=include");
-        ut_ll_append(attributes, "c4cpp=true");
-        ut_ll_append(attributes, "lang=cpp");
+        if (!c4cpp) {
+            ut_ll_append(generators, "c.project");
+            ut_ll_append(generators, "c.type");
+            ut_ll_append(generators, "c.interface");
+            ut_ll_append(generators, "c.load");
+            ut_ll_append(generators, "c.api");
+            ut_ll_append(generators, "c.binding");
+            ut_ll_append(generators, "c.cpp");
+            ut_ll_append(attributes, "c=src");
+            ut_ll_append(attributes, "h=include");
+        } else {
+            ut_throw("'c4cpp' can only be specified for C++ projects");
+            goto error;
+        }
+    } else if (!strcmp(language, "cpp")) {
+        if (c4cpp) {
+            ut_ll_append(generators, "c.project");
+            ut_ll_append(generators, "c.type");
+            ut_ll_append(generators, "c.interface");
+            ut_ll_append(generators, "c.load");
+            ut_ll_append(generators, "c.api");
+            ut_ll_append(generators, "c.binding");
+            ut_ll_append(generators, "c.cpp");
+            ut_ll_append(attributes, "c=src");
+            ut_ll_append(attributes, "cpp=src");
+            ut_ll_append(attributes, "h=include");
+            ut_ll_append(attributes, "c4cpp=true");
+        } else {
+            ut_ll_append(generators, "c.type");
+            ut_ll_append(generators, "c.load");
+            ut_ll_append(generators, "c.project");
+            ut_ll_append(generators, "cpp.class");
+            ut_ll_append(attributes, "c=src");
+            ut_ll_append(attributes, "h=include");
+            ut_ll_append(attributes, "cpp=src");
+            ut_ll_append(attributes, "hpp=include");
+            ut_ll_append(attributes, "c4cpp=true");
+            ut_ll_append(attributes, "lang=cpp");
+        }
     } else {
         ut_error("unknown language '%s'", language);
         goto error;
@@ -96,14 +104,14 @@ int16_t cortotool_core(void) {
       "--attr", "h=include/vstore",
       "--attr", "bootstrap=true",
       "--attr", "stubs=false",
-      "-g", "c/interface",
-      "-g", "c/type",
-      "-g", "c/binding",
+      "-g", "c.interface",
+      "-g", "c.type",
+      "-g", "c.binding",
       NULL
     });
     if (ut_proc_wait(pid, &ret) || ret) {
         ut_error("failed to generate code for corto/vstore (%d)", ret);
-        printf("   command: corto pp --name corto --scope corto/vstore --attr c=src/core --attr h=include/core --attr bootstrap=true --attr stubs=false -g c/interface -g c/api -g c/type\n");
+        printf("   command: corto pp --name corto --scope corto/vstore --attr c=src/core --attr h=include/core --attr bootstrap=true --attr stubs=false -g c.interface -g c.api -g c.type\n");
         goto error;
     }
 
@@ -116,14 +124,14 @@ int16_t cortotool_core(void) {
       "--attr", "h=include/lang",
       "--attr", "bootstrap=true",
       "--attr", "stubs=false",
-      "-g", "c/interface",
-      "-g", "c/type",
-      "-g", "c/binding",
+      "-g", "c.interface",
+      "-g", "c.type",
+      "-g", "c.binding",
       NULL
     });
     if (ut_proc_wait(pid, &ret) || ret) {
         ut_error("failed to generate code for corto/lang (%d)", ret);
-        printf("   command: corto pp --name corto --scope corto/lang --attr c=src/lang --attr h=include/lang --attr bootstrap=true --attr stubs=false -g c/interface -g c/api -g c/type\n");
+        printf("   command: corto pp --name corto --scope corto/lang --attr c=src/lang --attr h=include/lang --attr bootstrap=true --attr stubs=false -g c.interface -g c.api -g c.type\n");
         goto error;
     }
 
@@ -136,14 +144,14 @@ int16_t cortotool_core(void) {
       "--attr", "h=include/native",
       "--attr", "bootstrap=true",
       "--attr", "stubs=false",
-      "-g", "c/interface",
-      "-g", "c/type",
-      "-g", "c/binding",
+      "-g", "c.interface",
+      "-g", "c.type",
+      "-g", "c.binding",
       NULL
     });
     if (ut_proc_wait(pid, &ret) || ret) {
         ut_error("failed to generate code for corto/native (%d)", ret);
-        printf("   command: corto pp --name corto --scope corto/native --attr c=src/native --attr h=include/native --attr bootstrap=true --attr stubs=false -g c/interface -g c/api -g c/type\n");
+        printf("   command: corto pp --name corto --scope corto/native --attr c=src/native --attr h=include/native --attr bootstrap=true --attr stubs=false -g c.interface -g c.api -g c.type\n");
         goto error;
     }
 
@@ -156,14 +164,14 @@ int16_t cortotool_core(void) {
       "--attr", "h=include/secure",
       "--attr", "bootstrap=true",
       "--attr", "stubs=false",
-      "-g", "c/interface",
-      "-g", "c/type",
-      "-g", "c/binding",
+      "-g", "c.interface",
+      "-g", "c.type",
+      "-g", "c.binding",
       NULL
     });
     if (ut_proc_wait(pid, &ret) || ret) {
         ut_error("failed to generate code for corto/native (%d)", ret);
-        printf("   command: corto pp --name corto --scope corto/secure --attr c=src/secure --attr h=include/secure --attr bootstrap=true --attr stubs=false -g c/interface -g c/api -g c/type\n");
+        printf("   command: corto pp --name corto --scope corto/secure --attr c=src/secure --attr h=include/secure --attr bootstrap=true --attr stubs=false -g c.interface -g c.api -g c.type\n");
         goto error;
     }
 
@@ -177,12 +185,12 @@ int16_t cortotool_core(void) {
       "--attr", "h=include",
       "--attr", "bootstrap=true",
       "--attr", "stubs=false",
-      "-g", "c/api",
+      "-g", "c.api",
       NULL
     });
     if (ut_proc_wait(pid, &ret) || ret) {
         ut_error("failed to generate code for corto/c (%d)", ret);
-        printf("   command: corto pp --name corto --scope corto/vstore --attr c=src/core --attr h=include/core --attr bootstrap=true --attr stubs=false -g c/interface -g c/api -g c/type\n");
+        printf("   command: corto pp --name corto --scope corto/vstore --attr c=src/core --attr h=include/core --attr bootstrap=true --attr stubs=false -g c.interface -g c.api -g c.type\n");
         goto error;
     }
 
@@ -341,6 +349,7 @@ int cortomain(int argc, char *argv[]) {
       argv,
       (corto_argdata[]){
         {"$0", NULL, NULL}, /* Ignore 'pp' */
+        {"--path", NULL, &path},
         {"--silent", &silent, NULL},
         {"--mute", &mute, NULL},
         {"--core", &core, NULL},
@@ -351,6 +360,7 @@ int cortomain(int argc, char *argv[]) {
         {"--import", NULL, &imports},
         {"--use", NULL, &imports},
         {"--use-private", NULL, &private_imports},
+        {"--c4cpp", &c4cpp, NULL},
         {"-s", NULL, &scopes},
         {"$+--generator", NULL, &generators},
         {"$|-g", NULL, &generators},
@@ -360,6 +370,11 @@ int cortomain(int argc, char *argv[]) {
         {NULL}
       }
     );
+
+    if (path) {
+        const char *cur_path = ut_ll_get(path, 0);
+        ut_chdir(cur_path);
+    }
 
     if (!data) {
         ut_throw(NULL);
